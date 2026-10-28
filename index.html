@@ -62,6 +62,9 @@ label{font-size:12px;color:var(--mut)}
     <div class="card">
       <h3 style="margin:0 0 8px">Carrinho</h3>
       <table><tbody id="cart"></tbody></table>
+      <div style="margin-top:8px"><label>Cliente (opcional)</label><input id="cNome" placeholder="Nome"></div>
+      <div class="row"><div style="flex:1"><label>Telefone</label><input id="cTel" type="tel" inputmode="numeric" placeholder="(00) 00000-0000"></div>
+        <div style="flex:1"><label>CPF</label><input id="cCpf" inputmode="numeric" placeholder="000.000.000-00"></div></div>
       <div class="row"><div style="flex:1"><label>Desconto (R$)</label><input id="desc" type="number" min="0" step="0.01" value="0"></div>
         <div style="flex:1"><label>Pagamento</label>
         <select id="pgto"><option>Dinheiro</option><option>Pix</option><option>Cartão</option></select></div></div>
@@ -99,7 +102,7 @@ label{font-size:12px;color:var(--mut)}
       <input type="file" id="fileBkp" accept=".json" class="hide">
       <button class="b bad" id="zerar" style="margin-left:auto">Zerar vendas</button>
     </div>
-    <table><thead><tr><th>#</th><th>Hora</th><th>Itens</th><th>Pgto</th><th class="r">Total</th><th></th></tr></thead><tbody id="listaVendas"></tbody></table>
+    <table><thead><tr><th>#</th><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pgto</th><th class="r">Total</th><th></th></tr></thead><tbody id="listaVendas"></tbody></table>
   </div>
 </section>
 
@@ -120,6 +123,12 @@ let cart={};
 const save=()=>{try{localStorage.setItem('pdv',JSON.stringify(db))}catch(e){alert('Não foi possível salvar no navegador.')}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dig=s=>s.replace(/\D/g,'');
+const mascTel=s=>{const d=dig(s).slice(0,11),m=d.length===11?7:6;return d.length<3?d:d.length<=m?`(${d.slice(0,2)}) ${d.slice(2)}`:`(${d.slice(0,2)}) ${d.slice(2,m)}-${d.slice(m)}`};
+const mascCpf=s=>dig(s).slice(0,11).replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+const cpfValido=s=>{const d=dig(s);if(d.length!==11||/^(\d)\1+$/.test(d))return false;
+  const dv=n=>{let t=0;for(let k=0;k<n;k++)t+=d[k]*(n+1-k);return(t*10%11)%10};return dv(9)==d[9]&&dv(10)==d[10]};
+const limparCliente=()=>{$('#cNome').value=$('#cTel').value=$('#cCpf').value=''};
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
@@ -155,6 +164,8 @@ function renderCart(){
   $('#troco').textContent=brl(Math.max(0,rec-t));
 }
 ['#desc','#pgto','#recebido'].forEach(s=>$(s).oninput=renderCart);
+$('#cTel').oninput=e=>e.target.value=mascTel(e.target.value);
+$('#cCpf').oninput=e=>e.target.value=mascCpf(e.target.value);
 $('#busca').oninput=renderProds;
 $('#busca').onkeydown=e=>{
   if(e.key!=='Enter')return;
@@ -165,15 +176,20 @@ $('#busca').onkeydown=e=>{
   if(estoqueDisp(p)<=0)return alert('Sem estoque.');
   cart[p.id]=(cart[p.id]||0)+1;e.target.value='';render();
 };
-$('#limpar').onclick=()=>{cart={};$('#desc').value=0;$('#recebido').value='';render()};
+$('#limpar').onclick=()=>{cart={};$('#desc').value=0;$('#recebido').value='';limparCliente();render()};
 $('#finalizar').onclick=()=>{
   if(!Object.keys(cart).length)return alert('Carrinho vazio.');
   const t=totalFinal();
   if($('#pgto').value==='Dinheiro'&&$('#recebido').value&&parseFloat($('#recebido').value)<t)return alert('Valor recebido menor que o total.');
+  const cliente={nome:$('#cNome').value.trim(),telefone:$('#cTel').value.trim(),cpf:$('#cCpf').value.trim()};
+  if(cliente.telefone&&![10,11].includes(dig(cliente.telefone).length))return alert('Telefone inválido.');
+  if(cliente.cpf&&!cpfValido(cliente.cpf))return alert('CPF inválido.');
   const itens=Object.entries(cart).map(([id,q])=>{const p=db.produtos.find(x=>x.id===id);return{id,codigo:p.codigo,nome:p.nome,preco:pv(p),precoCheio:p.preco,qtd:q}});
-  db.vendas.push({n:db.seq++,ts:Date.now(),itens,desconto:parseFloat($('#desc').value)||0,pgto:$('#pgto').value,total:t});
+  const venda={n:db.seq++,ts:Date.now(),itens,desconto:parseFloat($('#desc').value)||0,pgto:$('#pgto').value,total:t};
+  if(cliente.nome||cliente.telefone||cliente.cpf)venda.cliente=cliente;
+  db.vendas.push(venda);
   itens.forEach(i=>{const p=db.produtos.find(x=>x.id===i.id);if(p.estoque!==null)p.estoque-=i.qtd});
-  save();cart={};$('#desc').value=0;$('#recebido').value='';render();
+  save();cart={};$('#desc').value=0;$('#recebido').value='';limparCliente();render();
 };
 
 function renderProdutos(){
@@ -236,6 +252,7 @@ function renderVendas(){
   $('#stats').innerHTML=[['Vendas',db.vendas.length],['Faturamento',brl(tot)],['Dinheiro',brl(por('Dinheiro'))],['Pix',brl(por('Pix'))],['Cartão',brl(por('Cartão'))]]
     .map(([a,b])=>`<div class="stat"><small>${a}</small><div>${b}</div></div>`).join('');
   $('#listaVendas').innerHTML=db.vendas.slice().reverse().map(v=>`<tr><td>${v.n}</td><td>${new Date(v.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${v.cliente?esc(v.cliente.nome)+([v.cliente.telefone,v.cliente.cpf].some(Boolean)?`<br><small style="color:var(--mut)">${esc([v.cliente.telefone,v.cliente.cpf].filter(Boolean).join(' · '))}</small>`:''):'<span style="color:var(--mut)">—</span>'}</td>
     <td>${v.itens.map(i=>i.qtd+'× '+esc(i.nome)).join(', ')}</td><td>${v.pgto}</td><td class="r">${brl(v.total)}</td>
     <td><button class="b bad" data-cancel="${v.n}">Cancelar</button></td></tr>`).join('');
   document.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>{
@@ -247,8 +264,8 @@ function renderVendas(){
 }
 function download(nome,txt,tipo){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:tipo}));a.download=nome;a.click();URL.revokeObjectURL(a.href)}
 $('#expCsv').onclick=()=>{
-  const l=['venda;data_hora;codigo;produto;qtd;preco_unit;preco_cheio;pagamento;desconto_venda;total_venda'];
-  db.vendas.forEach(v=>v.itens.forEach(i=>l.push([v.n,new Date(v.ts).toLocaleString('pt-BR'),i.codigo||'',i.nome.replace(/;/g,','),i.qtd,i.preco.toFixed(2).replace('.',','),(i.precoCheio??i.preco).toFixed(2).replace('.',','),v.pgto,v.desconto.toFixed(2).replace('.',','),v.total.toFixed(2).replace('.',',')].join(';'))));
+  const l=['venda;data_hora;codigo;produto;qtd;preco_unit;preco_cheio;pagamento;desconto_venda;total_venda;cliente_nome;cliente_telefone;cliente_cpf'];
+  db.vendas.forEach(v=>v.itens.forEach(i=>l.push([v.n,new Date(v.ts).toLocaleString('pt-BR'),i.codigo||'',i.nome.replace(/;/g,','),i.qtd,i.preco.toFixed(2).replace('.',','),(i.precoCheio??i.preco).toFixed(2).replace('.',','),v.pgto,v.desconto.toFixed(2).replace('.',','),v.total.toFixed(2).replace('.',','),(v.cliente?.nome||'').replace(/;/g,','),v.cliente?.telefone||'',v.cliente?.cpf||''].join(';'))));
   download('vendas.csv','\ufeff'+l.join('\n'),'text/csv');
 };
 $('#bkp').onclick=()=>download('pdv-backup.json',JSON.stringify(db),'application/json');
