@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini PDV</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--txt:#1d2433;--mut:#6b7280;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--bd:#e5e7eb}
+@media (prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--txt:#e8eaf0;--mut:#9aa3b2;--bd:#2a3040}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+header{display:flex;gap:8px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--bd);flex-wrap:wrap}
+header h1{font-size:18px;margin:0 auto 0 0}
+nav button{padding:8px 14px;border:1px solid var(--bd);background:var(--card);color:var(--txt);border-radius:8px;cursor:pointer;font-size:14px}
+nav button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+main{padding:16px;max-width:1100px;margin:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:10px}
+.prod{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--txt);cursor:pointer;text-align:left}
+.prod:hover{border-color:var(--pri)}
+.prod b{display:block;font-size:14px}
+.prod span{color:var(--mut);font-size:13px}
+.prod.zero{opacity:.4}
+.tag{background:var(--bad);color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-style:normal;font-weight:700;display:inline-block;margin-top:2px}
+input,select{padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--txt);font-size:14px;width:100%}
+button.b{padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-size:14px;background:var(--pri);color:#fff}
+button.ok{background:var(--ok)} button.bad{background:var(--bad)} button.gray{background:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:left}
+th{color:var(--mut);font-weight:600}
+.r{text-align:right}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}
+.total{font-size:28px;font-weight:700;text-align:right;margin:8px 0}
+.qty button{width:26px;height:26px;border:1px solid var(--bd);background:var(--bg);color:var(--txt);border-radius:6px;cursor:pointer}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.stat{padding:12px;border:1px solid var(--bd);border-radius:10px}
+.stat small{color:var(--mut)} .stat div{font-size:22px;font-weight:700}
+.hide{display:none}
+label{font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧾 Mini PDV</h1>
+  <input id="evento" placeholder="Nome do evento" style="max-width:220px">
+  <nav>
+    <button data-t="venda" class="on">Venda</button>
+    <button data-t="produtos">Produtos</button>
+    <button data-t="vendas">Vendas</button>
+  </nav>
+</header>
+<main>
+
+<section id="venda">
+  <div class="grid">
+    <div class="card">
+      <input id="busca" placeholder="Buscar por nome ou código (Enter adiciona)..." autofocus>
+      <div class="prods" id="prods"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 8px">Carrinho</h3>
+      <table><tbody id="cart"></tbody></table>
+      <div class="row"><div style="flex:1"><label>Desconto (R$)</label><input id="desc" type="number" min="0" step="0.01" value="0"></div>
+        <div style="flex:1"><label>Pagamento</label>
+        <select id="pgto"><option>Dinheiro</option><option>Pix</option><option>Cartão</option></select></div></div>
+      <div class="total" id="total">R$ 0,00</div>
+      <div id="trocoBox" class="row"><div style="flex:1"><label>Valor recebido</label><input id="recebido" type="number" min="0" step="0.01"></div>
+        <div style="flex:1"><label>Troco</label><div id="troco" style="font-size:20px;font-weight:700">R$ 0,00</div></div></div>
+      <div class="row"><button class="b gray" id="limpar">Limpar</button><button class="b ok" id="finalizar" style="flex:1">Finalizar venda</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="produtos" class="hide">
+  <div class="card">
+    <div class="row">
+      <input id="pCodigo" placeholder="Código (vazio = automático)" style="max-width:190px">
+      <input id="pNome" placeholder="Nome do produto">
+      <input id="pPreco" type="number" min="0" step="0.01" placeholder="Preço cheio" style="max-width:130px">
+      <input id="pPromo" type="number" min="0" step="0.01" placeholder="Preço promo (opcional)" style="max-width:180px">
+      <input id="pEstoque" type="number" min="0" placeholder="Estoque (vazio = sem controle)" style="max-width:200px">
+      <button class="b" id="addProd">Adicionar</button>
+    </div>
+    <div class="row"><button class="b gray" id="impProd">Importar lista (CSV: código;nome;preço cheio;preço promo;estoque)</button>
+      <input type="file" id="fileCsv" accept=".csv,.txt" class="hide"></div>
+    <table><thead><tr><th>Código</th><th>Produto</th><th class="r">Preço cheio</th><th class="r">Promo</th><th class="r">Estoque</th><th></th></tr></thead><tbody id="listaProd"></tbody></table>
+  </div>
+</section>
+
+<section id="vendas" class="hide">
+  <div class="stats" id="stats"></div>
+  <div class="card">
+    <div class="row">
+      <button class="b" id="expCsv">Exportar CSV</button>
+      <button class="b gray" id="bkp">Backup (JSON)</button>
+      <button class="b gray" id="rest">Restaurar backup</button>
+      <input type="file" id="fileBkp" accept=".json" class="hide">
+      <button class="b bad" id="zerar" style="margin-left:auto">Zerar vendas</button>
+    </div>
+    <table><thead><tr><th>#</th><th>Hora</th><th>Itens</th><th>Pgto</th><th class="r">Total</th><th></th></tr></thead><tbody id="listaVendas"></tbody></table>
+  </div>
+</section>
+
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const brl=n=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+let db;
+try{db=JSON.parse(localStorage.getItem('pdv')||'null')}catch(e){}
+db=db||{evento:'',produtos:[],vendas:[],seq:1};
+const proxCodigo=()=>String(db.produtos.reduce((m,p)=>Math.max(m,parseInt(p.codigo)||0),0)+1);
+const codigoExiste=(c,ignorarId)=>db.produtos.some(p=>p.id!==ignorarId&&String(p.codigo).toLowerCase()===c.toLowerCase());
+db.produtos.forEach(p=>{if(!p.codigo)p.codigo=proxCodigo()});
+const emPromo=p=>p.promo!=null&&p.promo<p.preco;
+const pv=p=>emPromo(p)?p.promo:p.preco;
+const precoHtml=p=>emPromo(p)?`<s>${brl(p.preco)}</s> <span style="color:var(--bad);font-weight:700">${brl(p.promo)}</span>`:brl(p.preco);
+let cart={};
+const save=()=>{try{localStorage.setItem('pdv',JSON.stringify(db))}catch(e){alert('Não foi possível salvar no navegador.')}};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  ['venda','produtos','vendas'].forEach(t=>$('#'+t).classList.toggle('hide',t!==b.dataset.t));
+  render();
+});
+$('#evento').value=db.evento;
+$('#evento').oninput=e=>{db.evento=e.target.value;save()};
+
+function estoqueDisp(p){return p.estoque===null?Infinity:p.estoque-(cart[p.id]||0)}
+function renderProds(){
+  const q=$('#busca').value.toLowerCase();
+  $('#prods').innerHTML=db.produtos.filter(p=>p.nome.toLowerCase().includes(q)||String(p.codigo).toLowerCase().includes(q)).map(p=>
+    `<button class="prod ${estoqueDisp(p)<=0?'zero':''}" data-id="${p.id}"><b>${esc(p.nome)}</b>${emPromo(p)?'<em class="tag">PROMO</em>':''}<span>#${esc(p.codigo)} · ${precoHtml(p)}${p.estoque!==null?' · '+estoqueDisp(p)+' un':''}</span></button>`).join('')||'<p style="color:var(--mut)">Cadastre produtos na aba Produtos.</p>';
+  document.querySelectorAll('.prod').forEach(b=>b.onclick=()=>{
+    const p=db.produtos.find(x=>x.id===b.dataset.id);
+    if(estoqueDisp(p)<=0)return;
+    cart[p.id]=(cart[p.id]||0)+1;render();
+  });
+}
+function subtotal(){return Object.entries(cart).reduce((s,[id,q])=>s+q*pv(db.produtos.find(p=>p.id===id)),0)}
+function totalFinal(){return Math.max(0,subtotal()-(parseFloat($('#desc').value)||0))}
+function renderCart(){
+  $('#cart').innerHTML=Object.entries(cart).map(([id,q])=>{
+    const p=db.produtos.find(x=>x.id===id);
+    return `<tr><td>${esc(p.nome)}${emPromo(p)?' <em class="tag">PROMO</em>':''}</td><td class="qty"><button data-m="${id}">−</button> ${q} <button data-p="${id}">+</button></td><td class="r">${brl(q*pv(p))}</td></tr>`}).join('')||'<tr><td style="color:var(--mut)">Carrinho vazio</td></tr>';
+  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{const i=b.dataset.m;if(--cart[i]<=0)delete cart[i];render()});
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const p=db.produtos.find(x=>x.id===b.dataset.p);if(estoqueDisp(p)>0){cart[p.id]++;render()}});
+  const t=totalFinal();
+  $('#total').textContent=brl(t);
+  $('#trocoBox').classList.toggle('hide',$('#pgto').value!=='Dinheiro');
+  const rec=parseFloat($('#recebido').value)||0;
+  $('#troco').textContent=brl(Math.max(0,rec-t));
+}
+['#desc','#pgto','#recebido'].forEach(s=>$(s).oninput=renderCart);
+$('#busca').oninput=renderProds;
+$('#busca').onkeydown=e=>{
+  if(e.key!=='Enter')return;
+  const q=e.target.value.trim().toLowerCase();if(!q)return;
+  let p=db.produtos.find(x=>String(x.codigo).toLowerCase()===q);
+  if(!p){const m=db.produtos.filter(x=>x.nome.toLowerCase().includes(q)||String(x.codigo).toLowerCase().includes(q));if(m.length===1)p=m[0]}
+  if(!p)return alert('Produto não encontrado.');
+  if(estoqueDisp(p)<=0)return alert('Sem estoque.');
+  cart[p.id]=(cart[p.id]||0)+1;e.target.value='';render();
+};
+$('#limpar').onclick=()=>{cart={};$('#desc').value=0;$('#recebido').value='';render()};
+$('#finalizar').onclick=()=>{
+  if(!Object.keys(cart).length)return alert('Carrinho vazio.');
+  const t=totalFinal();
+  if($('#pgto').value==='Dinheiro'&&$('#recebido').value&&parseFloat($('#recebido').value)<t)return alert('Valor recebido menor que o total.');
+  const itens=Object.entries(cart).map(([id,q])=>{const p=db.produtos.find(x=>x.id===id);return{id,codigo:p.codigo,nome:p.nome,preco:pv(p),precoCheio:p.preco,qtd:q}});
+  db.vendas.push({n:db.seq++,ts:Date.now(),itens,desconto:parseFloat($('#desc').value)||0,pgto:$('#pgto').value,total:t});
+  itens.forEach(i=>{const p=db.produtos.find(x=>x.id===i.id);if(p.estoque!==null)p.estoque-=i.qtd});
+  save();cart={};$('#desc').value=0;$('#recebido').value='';render();
+};
+
+function renderProdutos(){
+  $('#listaProd').innerHTML=db.produtos.map(p=>`<tr>
+    <td><input data-f="codigo" data-id="${p.id}" value="${esc(p.codigo)}" style="max-width:110px"></td>
+    <td><input data-f="nome" data-id="${p.id}" value="${esc(p.nome)}"></td>
+    <td class="r"><input data-f="preco" data-id="${p.id}" type="number" step="0.01" value="${p.preco}" style="max-width:100px"></td>
+    <td class="r"><input data-f="promo" data-id="${p.id}" type="number" step="0.01" value="${p.promo??''}" placeholder="—" style="max-width:100px"></td>
+    <td class="r"><input data-f="estoque" data-id="${p.id}" type="number" value="${p.estoque??''}" placeholder="∞" style="max-width:90px"></td>
+    <td><button class="b bad" data-del="${p.id}">✕</button></td></tr>`).join('');
+  document.querySelectorAll('[data-f]').forEach(i=>i.onchange=()=>{
+    const p=db.produtos.find(x=>x.id===i.dataset.id),f=i.dataset.f;
+    if(f==='codigo'){const c=i.value.trim();if(!c||codigoExiste(c,p.id)){alert('Código vazio ou já usado por outro produto.');i.value=p.codigo;return}p.codigo=c}
+    if(f==='nome')p.nome=i.value.trim()||p.nome;
+    if(f==='preco')p.preco=Math.max(0,parseFloat(i.value)||0);
+    if(f==='promo'){const v=i.value===''?null:parseFloat(i.value);if(v!==null&&(isNaN(v)||v<0||v>=p.preco)){alert('O preço promocional deve ser menor que o preço cheio.');i.value=p.promo??'';return}p.promo=v}
+    if(f==='estoque')p.estoque=i.value===''?null:Math.max(0,parseInt(i.value)||0);
+    save();
+  });
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    if(confirm('Remover produto?')){db.produtos=db.produtos.filter(p=>p.id!==b.dataset.del);delete cart[b.dataset.del];save();render()}});
+}
+$('#addProd').onclick=()=>{
+  const nome=$('#pNome').value.trim(),preco=parseFloat($('#pPreco').value);
+  if(!nome||isNaN(preco))return alert('Informe nome e preço.');
+  const promoTxt=$('#pPromo').value;
+  const promo=promoTxt===''?null:parseFloat(promoTxt);
+  if(promo!==null&&(isNaN(promo)||promo<0||promo>=preco))return alert('O preço promocional deve ser menor que o preço cheio.');
+  let codigo=$('#pCodigo').value.trim();
+  if(codigo&&codigoExiste(codigo))return alert('Já existe um produto com esse código.');
+  if(!codigo)codigo=proxCodigo();
+  const e=$('#pEstoque').value;
+  db.produtos.push({id:uid(),codigo,nome,preco,promo,estoque:e===''?null:parseInt(e)});
+  $('#pCodigo').value=$('#pNome').value=$('#pPreco').value=$('#pPromo').value=$('#pEstoque').value='';
+  save();render();$('#pCodigo').focus();
+};
+$('#impProd').onclick=()=>$('#fileCsv').click();
+$('#fileCsv').onchange=async e=>{
+  const txt=(await e.target.files[0].text()).replace(/^\ufeff/,'');let n=0,dup=0,inv=0,semPromo=0;
+  const first=txt.split(/\r?\n/)[0]||'';
+  const sep=[';',',','\t'].map(s=>[s,first.split(s).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const splitLine=l=>{const out=[];let cur='',q=false;for(let k=0;k<l.length;k++){const ch=l[k];if(ch==='"'){if(q&&l[k+1]==='"'){cur+='"';k++}else q=!q}else if(ch===sep&&!q){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out.map(x=>x.trim())};
+  txt.split(/\r?\n/).forEach((l,i)=>{
+    if(!l.trim())return;
+    const c=splitLine(l);
+    const preco=parseFloat((c[2]||'').replace(',','.'));
+    if(!c[1]||isNaN(preco)){if(i>0)inv++;return}
+    if(c[0]&&codigoExiste(c[0])){dup++;return}
+    let promo=c[3]?parseFloat(c[3].replace(',','.')):null;
+    if(promo!==null&&(isNaN(promo)||promo<0||promo>=preco)){promo=null;semPromo++}
+    const est=c[4]?parseInt(c[4]):null;
+    db.produtos.push({id:uid(),codigo:c[0]||proxCodigo(),nome:c[1],preco,promo,estoque:isNaN(est)?null:est});n++;
+  });
+  alert(n+' produtos importados.'+(dup?'\n'+dup+' ignorados por código já existente.':'')+(inv?'\n'+inv+' linhas ignoradas (nome ou preço inválido).':'')+(semPromo?'\n'+semPromo+' com preço promo inválido (maior ou igual ao cheio) — importados sem promoção.':''));e.target.value='';save();render();
+};
+
+function renderVendas(){
+  const tot=db.vendas.reduce((s,v)=>s+v.total,0);
+  const por=p=>db.vendas.filter(v=>v.pgto===p).reduce((s,v)=>s+v.total,0);
+  $('#stats').innerHTML=[['Vendas',db.vendas.length],['Faturamento',brl(tot)],['Dinheiro',brl(por('Dinheiro'))],['Pix',brl(por('Pix'))],['Cartão',brl(por('Cartão'))]]
+    .map(([a,b])=>`<div class="stat"><small>${a}</small><div>${b}</div></div>`).join('');
+  $('#listaVendas').innerHTML=db.vendas.slice().reverse().map(v=>`<tr><td>${v.n}</td><td>${new Date(v.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${v.itens.map(i=>i.qtd+'× '+esc(i.nome)).join(', ')}</td><td>${v.pgto}</td><td class="r">${brl(v.total)}</td>
+    <td><button class="b bad" data-cancel="${v.n}">Cancelar</button></td></tr>`).join('');
+  document.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>{
+    if(!confirm('Cancelar esta venda? O estoque será devolvido.'))return;
+    const v=db.vendas.find(x=>x.n==b.dataset.cancel);
+    v.itens.forEach(i=>{const p=db.produtos.find(x=>x.id===i.id);if(p&&p.estoque!==null)p.estoque+=i.qtd});
+    db.vendas=db.vendas.filter(x=>x!==v);save();render();
+  });
+}
+function download(nome,txt,tipo){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:tipo}));a.download=nome;a.click();URL.revokeObjectURL(a.href)}
+$('#expCsv').onclick=()=>{
+  const l=['venda;data_hora;codigo;produto;qtd;preco_unit;preco_cheio;pagamento;desconto_venda;total_venda'];
+  db.vendas.forEach(v=>v.itens.forEach(i=>l.push([v.n,new Date(v.ts).toLocaleString('pt-BR'),i.codigo||'',i.nome.replace(/;/g,','),i.qtd,i.preco.toFixed(2).replace('.',','),(i.precoCheio??i.preco).toFixed(2).replace('.',','),v.pgto,v.desconto.toFixed(2).replace('.',','),v.total.toFixed(2).replace('.',',')].join(';'))));
+  download('vendas.csv','\ufeff'+l.join('\n'),'text/csv');
+};
+$('#bkp').onclick=()=>download('pdv-backup.json',JSON.stringify(db),'application/json');
+$('#rest').onclick=()=>$('#fileBkp').click();
+$('#fileBkp').onchange=async e=>{
+  try{const d=JSON.parse(await e.target.files[0].text());if(!d.produtos||!d.vendas)throw 0;db=d;save();$('#evento').value=db.evento||'';cart={};render();alert('Backup restaurado.')}
+  catch(x){alert('Arquivo inválido.')}e.target.value='';
+};
+$('#zerar').onclick=()=>{
+  if(confirm('Apagar TODAS as vendas? Baixe um backup antes.')&&confirm('Tem certeza?')){db.vendas=[];db.seq=1;save();render()}
+};
+
+function render(){renderProds();renderCart();renderProdutos();renderVendas()}
+render();
+</script>
+</body>
+</html>
