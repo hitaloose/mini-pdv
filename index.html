@@ -123,16 +123,13 @@
             <label for="recebido">Valor recebido <span class="kbd" aria-hidden="true">F6</span></label>
             <input id="recebido" class="input lg num" type="number" min="0" step="0.01" placeholder="0,00" inputmode="decimal" aria-describedby="recErr">
             <span class="ferr num hide" id="recErr"></span>
-            <div class="chips" id="chips">
-              <button type="button" class="chip" data-rec="exato">Exato</button>
-              <button type="button" class="chip" data-rec="50">R$ 50</button>
-              <button type="button" class="chip" data-rec="100">R$ 100</button>
-            </div>
           </div>
           <div class="field">
             <span class="flabel" id="trocoLbl">Troco</span>
             <div class="troco num" id="troco" aria-labelledby="trocoLbl" aria-live="polite">R$ 0,00</div>
           </div>
+          <!-- sugestões de valor recebido: preenchidas pelo JS a partir das cédulas -->
+          <div class="chips" id="chips" role="group" aria-label="Sugestões de valor recebido"></div>
         </div>
 
         </div>

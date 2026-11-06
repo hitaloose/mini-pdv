@@ -195,7 +195,8 @@ function renderCart() {
   $('#recebido').classList.toggle('err', falta);
   $('#recErr').classList.toggle('hide', !falta);
   $('#recErr').textContent = falta ? 'Faltam ' + brl(t - rec) : '';
-  $('#chips').classList.toggle('hide', falta);
+  renderChips(t, recTxt);
+  $('#chips').classList.toggle('hide', falta || t <= 0);
   $('#troco').textContent = brl(Math.max(0, rec - t));
   $('#troco').classList.toggle('neg', falta);
   $('#mCount').textContent = qtd;
@@ -203,11 +204,39 @@ function renderCart() {
 }
 ['#desc', '#recebido'].forEach(s => $(s).oninput = renderCart);
 $$('input[name=pgto],input[name=descTipo]').forEach(r => r.onchange = renderCart);
-$$('#chips [data-rec]').forEach(b => b.onclick = () => {
-  const v = b.dataset.rec;
-  $('#recebido').value = v === 'exato' ? totalFinal().toFixed(2) : v;
+/* ---------- Sugestões de valor recebido ----------
+   Para cada cédula (2, 5, 10, 20, 50, 100, 200), o menor múltiplo dela
+   que fica ACIMA do total. Ex.: total R$ 58,05 → 60, 100, 200. */
+const CEDULAS = [2, 5, 10, 20, 50, 100, 200];
+const MAX_SUGESTOES = 5;
+function sugestoesRecebido(total) {
+  const centavos = Math.round(total * 100);
+  if (centavos <= 0) return [];
+  // múltiplo estritamente maior que o total; se passar do limite, as cédulas grandes têm prioridade
+  const valores = [];
+  for (const n of [...CEDULAS].reverse()) {
+    const v = (Math.floor(centavos / (n * 100)) + 1) * n;
+    if (!valores.includes(v) && valores.length < MAX_SUGESTOES) valores.push(v);
+  }
+  return valores.sort((a, b) => a - b);
+}
+let chipsKey = '';
+function renderChips(total, recTxt) {
+  const sug = sugestoesRecebido(total);
+  const key = total.toFixed(2) + '|' + sug.join(',');
+  if (key !== chipsKey) {
+    chipsKey = key;
+    $('#chips').innerHTML = `<button type="button" class="chip" data-rec="${total.toFixed(2)}" aria-label="Recebido valor exato, ${brl(total)}">Exato</button>`
+      + sug.map(v => `<button type="button" class="chip" data-rec="${v}" aria-label="Recebido ${brl(v)}, troco ${brl(v - total)}">R$ ${v}</button>`).join('');
+  }
+  const rec = parseFloat(recTxt);
+  $$('#chips .chip').forEach(b => b.classList.toggle('on', recTxt !== '' && Math.abs(parseFloat(b.dataset.rec) - rec) < 0.005));
+}
+$('#chips').onclick = e => {
+  const b = e.target.closest('[data-rec]'); if (!b) return;
+  $('#recebido').value = b.dataset.rec;
   renderCart();
-});
+};
 // Ao abrir "Cliente", rola a área do rodapé para mostrar os campos (o botão Finalizar continua fixo)
 $('#cliente').ontoggle = () => {
   if (!$('#cliente').open) return;
